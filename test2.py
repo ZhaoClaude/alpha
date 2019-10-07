@@ -49,7 +49,6 @@ def alphatest(data):
     return alphaout
     
 def computeret(close,pos):
-    temp = np.log(close)
     ret = close[1:]/close[:-1]
     
     pos = (pos.T/np.sum(pos,axis = 1)).T
@@ -68,9 +67,12 @@ def performance(ret):
         maxprofit = max(maxprofit,pnl[-1])
         maxdrawdown = max([maxprofit-pnl[-1],maxdrawdown])
     sharpe =np.mean(ret-1)/np.std(ret-1)*(252**0.5)
+    #np.savetxt('test.csv',ret)
     print ("the final pnl is ",pnl[-1])
     print ("the maxdrawdown is",maxdrawdown)
     print("the shapre ratio is",sharpe)
+    plt.plot(pnl)
+    plt.show()
     
 
 
@@ -83,8 +85,8 @@ def backtestalpha(startdate,enddate,changedate,subuniversepath,alphatype):
     changelist.append(enddate)
     while (tdate<= enddate) and(j<len(changelist)) :
         data = []
-        #codelist = w.wset("sectorconstituent","date="+tdate.strftime('%Y%m%d')+";windcode="+subuniversepath+';field= wind_code').Data[0]
-        codelist = ['000016.sh']
+        codelist = w.wset("sectorconstituent","date="+tdate.strftime('%Y%m%d')+";windcode="+subuniversepath+';field= wind_code').Data[0]
+        #codelist = ['000016.sh']
         datelist = [tdate,w.tdaysoffset(1, changelist[j], "").Data[0][0].date()]
         for i in alphatype:
             data.append(getdata(codelist,datelist,i))
