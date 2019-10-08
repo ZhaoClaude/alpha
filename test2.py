@@ -33,27 +33,69 @@ def getdata(codelist,datelist,atype):
     data = []
     print(datelist)
     for i in codelist:
-        temp = w.wsd(i,atype,datelist[0],datelist[1]).Data[0]
+        temp = w.wsd(i,atype,datelist[0],datelist[1],"PriceAdj=F").Data[0]
         data.append(temp)
     data =np.array(data).T
     print('histdata\\'+atype+datelist[0].strftime('%Y%m%d')+'.csv')
-    np.savetxt('histdata\\'+atype+datelist[0].strftime('%Y%m%d')+'.csv',data,delimiter=',')
+    np.savetxt('histdata\\'+'000016'+atype+datelist[0].strftime('%Y%m%d')+'.csv',data,delimiter=',')
     return(data)
         
 def getdatacsv(codelist,datelist,atype):
-    data = np.loadtxt('histdata\\'+atype+datelist[0].strftime('%Y%m%d')+'.csv',delimiter=',')
+    data = np.loadtxt('histdata\\'+'000016'+atype+datelist[0].strftime('%Y%m%d')+'.csv',delimiter=',')
     return(data)
+
+def rank101(x):
+    return (np.argsort(np.argsort(x))+1)/(len(x))
     
-def alphatest(data):
-    alphaout = np.ones([data[0].shape[0]-1,data[0].shape[1]])
+
+
+    
+
+def alphatest(data,backday):
+    return alphatest51(data,backday);
+
+def alphatest51(data,backday):
+    close = data[0]
+    alphaout = np.zeros([data[0].shape[0]-backday-1,data[0].shape[1]])
+    for i in range(backday,len(close)-1):
+        t1 = (close[i-backday]-close[i-10])/10
+        t2 = (close[i-10]-close[i-1])/10
+        alphaout[i-backday][(t1-t2)<-0.05]=1
+        alphaout[i-backday][(t1-t2)>=-0.05] = -1*(close[i-1][(t1-t2)>=-0.05]-close[i-1][(t1-t2)>=-0.05])
+        alphaout[i-backday][alphaout[i-backday]<0]=0
+        
     return alphaout
     
-def computeret(close,pos):
-    ret = close[1:]/close[:-1]
+        
+def alphatest11(data,backday):
+    close = data[0]
+    vwap = data[1]
+    volume = data[2]
+    alphaout = np.zeros([data[0].shape[0]-backday-1,data[0].shape[1]])
+    for i in range(backday,len(close)-1):
+        temp = vwap[i-backday:i]-close[i-backday:i]
+        t2 = np.max(temp,axis = 0)
+        t3 = np.min(temp,axis = 0)
+        t4 = volume[i-1]-volume[i-backday]
+        alphaout[i-backday] = (rank101(t2)+rank101(t3))*rank101(t4)
+        
+        
+    print(alphaout.shape)
+
+    #alphaout = np.ones([data[0].shape[0]-backday-1,data[0].shape[1]])
+    
+    return alphaout
+    
+def computeret(close,pos,backday):
+    ret = close[backday+1:]/close[backday:-1]
     
     pos = (pos.T/np.sum(pos,axis = 1)).T
-    pnlret = np.sum(pos*ret,axis = 1)
+    pos[np.isnan(pos)]=0
     
+    pnlret = np.sum(pos*ret,axis = 1)
+    pnlret[pnlret==0]=1
+    
+    np.savetxt('test2.csv',pos,delimiter=',')   
     return list(pnlret)
 
 def performance(ret):
@@ -76,7 +118,7 @@ def performance(ret):
     
 
 
-def backtestalpha(startdate,enddate,changedate,subuniversepath,alphatype):
+def backtestalpha(startdate,enddate,changedate,subuniversepath,backday,alphatype):
     w.start()
     tdate = startdate
     j = 0
@@ -87,11 +129,11 @@ def backtestalpha(startdate,enddate,changedate,subuniversepath,alphatype):
         data = []
         codelist = w.wset("sectorconstituent","date="+tdate.strftime('%Y%m%d')+";windcode="+subuniversepath+';field= wind_code').Data[0]
         #codelist = ['000016.sh']
-        datelist = [tdate,w.tdaysoffset(1, changelist[j], "").Data[0][0].date()]
+        datelist = [w.tdaysoffset(0-backday, tdate, "").Data[0][0].date(),w.tdaysoffset(1, changelist[j], "").Data[0][0].date()]
         for i in alphatype:
-            data.append(getdata(codelist,datelist,i))
-        alphaout = alphatest(data)
-        ret.extend(computeret(data[0],alphaout))
+            data.append(getdatacsv(codelist,datelist,i))
+        alphaout = alphatest(data,backday)
+        ret.extend(computeret(data[0],alphaout,backday))
         
         tdate = changelist[j]
         j = j+1
@@ -107,19 +149,19 @@ def backtestalpha(startdate,enddate,changedate,subuniversepath,alphatype):
 
 
 # config
-startdate = dt.date(2019,3,1)  # minimum startdate=20100101
-enddate = dt.date(2019,9,1)
+startdate = dt.date(2019,1,1)  # minimum startdate=20100101
+enddate = dt.date(2019,6,30)
 changedate = 'change.csv'
-backdate = 5  # number of previous days necessary for calculating today's position; e.g., if you need Tue,Wed,Thu data to calculate Fri position, set backdate=3; minimum backdate is 1
+backdate = 20  # number of previous days necessary for calculating today's position; e.g., if you need Tue,Wed,Thu data to calculate Fri position, set backdate=3; minimum backdate is 1
 booksize = 1e7  # the total portfolio monetary size (RMB)
 mode = 0  # 0 for long only without hedging; 1 for long only with futures hedging; 2 for long-short
 universe = 0  # 0 for all A share; 1 for subuniverse: set subuniversepath
-subuniversepath = '000300.SH'  # ZZ800 for 'zhongzheng800', HS300 for 'hushen300'
+subuniversepath = '000016.SH'  # ZZ800 for 'zhongzheng800', HS300 for 'hushen300'
 pnlpath = 'pnl.csv'  # output pnl file
 positionpath = 'position.csv'  # output daily position file
 tradingcost = 8e-4
 futurestradingcost = 0.6e-4
 alphatype = ['close']
-backtestalpha(startdate,enddate,changedate,subuniversepath,alphatype)
+backtestalpha(startdate,enddate,changedate,subuniversepath,backdate,alphatype)
 #performance()
 
