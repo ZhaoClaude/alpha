@@ -6,7 +6,9 @@ import os
 import matplotlib.pyplot as plt
 import datetime as dt
 from WindPy import *
+from alphatool import wq101
 
+    
 
 def performance2():
     tdate = startdate
@@ -31,40 +33,48 @@ def listread(filename):
 def getdata(codelist,datelist,atype):
     
     data = []
-    print(datelist)
     for i in codelist:
         temp = w.wsd(i,atype,datelist[0],datelist[1],"PriceAdj=F").Data[0]
         data.append(temp)
     data =np.array(data).T
     print('histdata\\'+atype+datelist[0].strftime('%Y%m%d')+'.csv')
-    np.savetxt('histdata\\'+'000016'+atype+datelist[0].strftime('%Y%m%d')+'.csv',data,delimiter=',')
+    np.savetxt('histdata\\'+'000016'+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv',data,delimiter=',')
     return(data)
         
 def getdatacsv(codelist,datelist,atype):
-    data = np.loadtxt('histdata\\'+'000016'+atype+datelist[0].strftime('%Y%m%d')+'.csv',delimiter=',')
+    print('histdata\\'+atype+datelist[0].strftime('%Y%m%d')+'.csv')
+    data = np.loadtxt('histdata\\'+'000016'+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv',delimiter=',')
     return(data)
 
-def rank101(x):
-    return (np.argsort(np.argsort(x))+1)/(len(x))
-    
+
 
 
     
 
 def alphatest(data,backday):
-    return alphatest51(data,backday);
+    return alphatest11(data,backday);
 
-def alphatest51(data,backday):
-    close = data[0]
-    alphaout = np.zeros([data[0].shape[0]-backday-1,data[0].shape[1]])
-    for i in range(backday,len(close)-1):
-        t1 = (close[i-backday]-close[i-10])/10
-        t2 = (close[i-10]-close[i-1])/10
-        alphaout[i-backday][(t1-t2)<-0.05]=1
-        alphaout[i-backday][(t1-t2)>=-0.05] = -1*(close[i-1][(t1-t2)>=-0.05]-close[i-1][(t1-t2)>=-0.05])
-        alphaout[i-backday][alphaout[i-backday]<0]=0
-        
-    return alphaout
+def alphatest12(data,backday):
+    close = data[0][:-1]
+    volume = data[1][:-1]
+    
+    
+    alpha = np.sign(delta(volume,backday))*(-1*delta(close,backday))
+    
+ #   for i in range(backday,len(close)-1):
+
+
+#def alphatest51(data,backday):
+#    close = data[0]
+#    alphaout = np.zeros([data[0].shape[0]-backday-1,data[0].shape[1]])
+#    for i in range(backday,len(close)-1):
+#        t1 = (close[i-backday]-close[i-10])/10
+#        t2 = (close[i-10]-close[i-1])/10
+#        alphaout[i-backday][(t1-t2)<-0.05]=1
+#        alphaout[i-backday][(t1-t2)>=-0.05] = -1*(close[i-1][(t1-t2)>=-0.05]-close[i-1][(t1-t2)>=-0.05])
+#        alphaout[i-backday][alphaout[i-backday]<0]=0
+#        
+#    return alphaout
     
         
 def alphatest11(data,backday):
@@ -77,7 +87,7 @@ def alphatest11(data,backday):
         t2 = np.max(temp,axis = 0)
         t3 = np.min(temp,axis = 0)
         t4 = volume[i-1]-volume[i-backday]
-        alphaout[i-backday] = (rank101(t2)+rank101(t3))*rank101(t4)
+        alphaout[i-backday] = (wq101.rankdata(t2)+wq101.rankdata(t3))*wq101.rankdata(t4)
         
         
     print(alphaout.shape)
@@ -86,7 +96,8 @@ def alphatest11(data,backday):
     
     return alphaout
     
-def computeret(close,pos,backday):
+def computeret(close,pos,backday,pnl):
+
     ret = close[backday+1:]/close[backday:-1]
     
     pos = (pos.T/np.sum(pos,axis = 1)).T
@@ -117,13 +128,15 @@ def performance(ret):
     plt.show()
     
 
+    
 
-def backtestalpha(startdate,enddate,changedate,subuniversepath,backday,alphatype):
+def backtestalpha(startdate,enddate,changedate,subuniversepath,backday,alphatype,booksize):
     w.start()
     tdate = startdate
     j = 0
     changelist = listread(changedate)
-    ret = []
+    pnl =[booksize] 
+    ret =[]
     changelist.append(enddate)
     while (tdate<= enddate) and(j<len(changelist)) :
         data = []
@@ -133,8 +146,9 @@ def backtestalpha(startdate,enddate,changedate,subuniversepath,backday,alphatype
         for i in alphatype:
             data.append(getdatacsv(codelist,datelist,i))
         alphaout = alphatest(data,backday)
-        ret.extend(computeret(data[0],alphaout,backday))
         
+        #pnl.extend(computeret(data[0],alphaout,backday,pnl))
+        ret.extend(computeret(data[0],alphaout,backday,pnl))
         tdate = changelist[j]
         j = j+1
     
@@ -150,7 +164,7 @@ def backtestalpha(startdate,enddate,changedate,subuniversepath,backday,alphatype
 
 # config
 startdate = dt.date(2019,1,1)  # minimum startdate=20100101
-enddate = dt.date(2019,6,30)
+enddate = dt.date(2019,9,1)
 changedate = 'change.csv'
 backdate = 20  # number of previous days necessary for calculating today's position; e.g., if you need Tue,Wed,Thu data to calculate Fri position, set backdate=3; minimum backdate is 1
 booksize = 1e7  # the total portfolio monetary size (RMB)
@@ -161,7 +175,7 @@ pnlpath = 'pnl.csv'  # output pnl file
 positionpath = 'position.csv'  # output daily position file
 tradingcost = 8e-4
 futurestradingcost = 0.6e-4
-alphatype = ['close']
-backtestalpha(startdate,enddate,changedate,subuniversepath,backdate,alphatype)
+alphatype = ['close','vwap','volume']
+backtestalpha(startdate,enddate,changedate,subuniversepath,backdate,alphatype,booksize)
 #performance()
 
