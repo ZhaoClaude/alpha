@@ -8,17 +8,14 @@ Created on Wed Oct  9 14:10:40 2019
 from numpy import *
 
 
-class wq101(object):
-    def rankdata(self,x):
-        t = (argsort(argsort(x))+1)/(len(x))
-        return(t)
-        
-    
-    
-    
-    def delta(self,data,backday):
-        return data[:-backday]
-    
-if __name__== '__main__':
-    t1 = wq101()
+def rankdata(x):
+    t = (argsort(argsort(x))+1)/(len(x))
+    return(t)
+
+def delta(data,backday,nsize):
+    return data[nsize-backday:0-1-backday]-data[nsize:-1]
+
+#    
+#if __name__== '__main__':
+#    t1 = wq101()
     

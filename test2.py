@@ -6,7 +6,7 @@ import os
 import matplotlib.pyplot as plt
 import datetime as dt
 from WindPy import *
-from alphatool import wq101
+from alphatool import wq101 as wq
 
     
 
@@ -59,7 +59,7 @@ def alphatest12(data,backday):
     volume = data[1][:-1]
     
     
-    alpha = np.sign(delta(volume,backday))*(-1*delta(close,backday))
+    alpha = np.sign(wq.delta(volume,backday,backday))*(-1*wq.delta(close,backday,backday))
     
  #   for i in range(backday,len(close)-1):
 
@@ -87,7 +87,7 @@ def alphatest11(data,backday):
         t2 = np.max(temp,axis = 0)
         t3 = np.min(temp,axis = 0)
         t4 = volume[i-1]-volume[i-backday]
-        alphaout[i-backday] = (wq101.rankdata(t2)+wq101.rankdata(t3))*wq101.rankdata(t4)
+        alphaout[i-backday] = (wq.rankdata(t2)+wq.rankdata(t3))*wq.rankdata(t4)
         
         
     print(alphaout.shape)
