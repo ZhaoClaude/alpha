@@ -13,7 +13,7 @@ def rankdata(x):
     return(t)
 
 def delta(data,backday,nsize):
-    return data[nsize-backday:0-1-backday]-data[nsize:-1]
+    return data[nsize-backday:0-backday]-data[nsize::]
 
 #    
 #if __name__== '__main__':

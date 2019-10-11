@@ -52,14 +52,16 @@ def getdatacsv(codelist,datelist,atype):
     
 
 def alphatest(data,backday):
-    return alphatest11(data,backday);
+    return alphatest12(data,backday);
 
 def alphatest12(data,backday):
     close = data[0][:-1]
     volume = data[1][:-1]
     
-    
-    alpha = np.sign(wq.delta(volume,backday,backday))*(-1*wq.delta(close,backday,backday))
+    alpha = np.zeros([data[0].shape[0]-backday-1,data[0].shape[1]])
+    alpha = np.sign(wq.delta(volume,backday,backday))*(-1*wq.delta(close,1,backday))
+    alpha[alpha<=0] = 0
+    return(alpha)
     
  #   for i in range(backday,len(close)-1):
 
@@ -175,7 +177,7 @@ pnlpath = 'pnl.csv'  # output pnl file
 positionpath = 'position.csv'  # output daily position file
 tradingcost = 8e-4
 futurestradingcost = 0.6e-4
-alphatype = ['close','vwap','volume']
+alphatype = ['close','volume']
 backtestalpha(startdate,enddate,changedate,subuniversepath,backdate,alphatype,booksize)
 #performance()
 
