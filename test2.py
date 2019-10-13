@@ -10,27 +10,12 @@ from alphatool import wq101 as wq
 
     
 
-def performance2():
-    tdate = startdate
-    j = 0
-    changedate.append(enddate)
-    while tdate<=enddate:
-
-
-        backdata = getdata(codelist,timelist)
-        ret = backdata*alpha
-
-        j = j+1;
-        tdate = changedate[j]
-
-
-
 
 
 def listread(filename):
     return []
 
-def getdata(codelist,datelist,atype):
+def getdata(codelist,datelist,atype,sub):
     
     data = []
     for i in codelist:
@@ -38,14 +23,18 @@ def getdata(codelist,datelist,atype):
         data.append(temp)
     data =np.array(data).T
     print('histdata\\'+atype+datelist[0].strftime('%Y%m%d')+'.csv')
-    np.savetxt('histdata\\'+'000016'+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv',data,delimiter=',')
+    np.savetxt('histdata\\'+sub[:6]+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv',data,delimiter=',')
     return(data)
         
-def getdatacsv(codelist,datelist,atype):
+def getdatacsv(codelist,datelist,atype,sub):
     print('histdata\\'+atype+datelist[0].strftime('%Y%m%d')+'.csv')
-    data = np.loadtxt('histdata\\'+'000016'+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv',delimiter=',')
+    data = np.loadtxt('histdata\\'+sub[:6]+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv',delimiter=',')
     return(data)
 
+def gettradestatus(t1,t2):
+    t3 = (t1>0) & (t2==0)
+    return(t3)
+    
 
 
 
@@ -55,12 +44,12 @@ def alphatest(data,backday):
     return alphatest12(data,backday);
 
 def alphatest12(data,backday):
-    close = data[0][:-1]
-    volume = data[1][:-1]
+    close = data['close'][:-1]
+    volume = data['volume'][:-1]
     
-    alpha = np.zeros([data[0].shape[0]-backday-1,data[0].shape[1]])
-    alpha = np.sign(wq.delta(volume,backday,backday))*(-1*wq.delta(close,1,backday))
-    alpha[alpha<=0] = 0
+
+    alpha = np.sign(wq.delta(volume,backday,backday))*(-1*wq.delta(close,backday,backday))
+    np.savetxt('test3.csv',alpha,delimiter=',')
     return(alpha)
     
  #   for i in range(backday,len(close)-1):
@@ -80,9 +69,9 @@ def alphatest12(data,backday):
     
         
 def alphatest11(data,backday):
-    close = data[0]
-    vwap = data[1]
-    volume = data[2]
+    close = data['close']
+    vwap = data['vwap']
+    volume = data['volume']
     alphaout = np.zeros([data[0].shape[0]-backday-1,data[0].shape[1]])
     for i in range(backday,len(close)-1):
         temp = vwap[i-backday:i]-close[i-backday:i]
@@ -92,36 +81,51 @@ def alphatest11(data,backday):
         alphaout[i-backday] = (wq.rankdata(t2)+wq.rankdata(t3))*wq.rankdata(t4)
         
         
-    print(alphaout.shape)
+    
 
     #alphaout = np.ones([data[0].shape[0]-backday-1,data[0].shape[1]])
     
     return alphaout
     
-def computeret(close,pos,backday,pnl):
-
-    ret = close[backday+1:]/close[backday:-1]
+def computeret(close,pos,backday,pnl,tstatus,tradingcost):
     
-    pos = (pos.T/np.sum(pos,axis = 1)).T
+    pos[pos<=0] = 0
     pos[np.isnan(pos)]=0
+    pos = (pos.T/np.sum(pos,axis = 1)).T
+    pos[tstatus[backday:-1]==False] = 0   
     
-    pnlret = np.sum(pos*ret,axis = 1)
-    pnlret[pnlret==0]=1
-    
-    np.savetxt('test2.csv',pos,delimiter=',')   
-    return list(pnlret)
+    share = np.zeros(np.shape(close))
 
-def performance(ret):
-    pnl =[1]
+    spnl = np.zeros(len(close))
+    rcost = np.zeros(len(close))
+    spnl[backday+1] =pnl
+    for i in range(backday+1,len(close)-1):
+
+
+        share[i] =np.ceil(pos[i-backday-1]/close[i]*spnl[i]/100)*100
+        rcost[i+1] = np.nansum(np.abs(share[i]-share[i-1])*close[i])*tradingcost
+        addshare = spnl[i]-np.nansum(share[i]*close[i])
+        
+        spnl[i+1] = addshare+np.nansum(share[i]*close[i+1])-rcost[i+1]
+
+    
+
+  
+    np.savetxt('test2.csv',share,delimiter=',')
+
+    return list(spnl[backday+1::])
+
+def performance(pnl):
+   # print(pnl)
     maxprofit = 0
     maxdrawdown = 0
-    ret = np.array(ret)
-    for i in ret:
-        pnl.append(pnl[-1]*i)
-
-        maxprofit = max(maxprofit,pnl[-1])
-        maxdrawdown = max([maxprofit-pnl[-1],maxdrawdown])
-    sharpe =np.mean(ret-1)/np.std(ret-1)*(252**0.5)
+    pnl = np.array(pnl)/pnl[0]
+    ret = (pnl[1:]/pnl[:-1])-1;
+    
+    for i in pnl:
+        maxprofit = max(maxprofit,i)
+        maxdrawdown = max([maxprofit-i,maxdrawdown])
+    sharpe =np.mean(ret)/np.std(ret)*(252**0.5)
     #np.savetxt('test.csv',ret)
     print ("the final pnl is ",pnl[-1])
     print ("the maxdrawdown is",maxdrawdown)
@@ -132,29 +136,35 @@ def performance(ret):
 
     
 
-def backtestalpha(startdate,enddate,changedate,subuniversepath,backday,alphatype,booksize):
+def backtestalpha(startdate,enddate,changedate,subuniversepath,backday,alphatype,booksize,tradingcost):
     w.start()
     tdate = startdate
     j = 0
     changelist = listread(changedate)
     pnl =[booksize] 
-    ret =[]
+
     changelist.append(enddate)
     while (tdate<= enddate) and(j<len(changelist)) :
-        data = []
+        data = dict.fromkeys(alphatype)
+        
         codelist = w.wset("sectorconstituent","date="+tdate.strftime('%Y%m%d')+";windcode="+subuniversepath+';field= wind_code').Data[0]
         #codelist = ['000016.sh']
-        datelist = [w.tdaysoffset(0-backday, tdate, "").Data[0][0].date(),w.tdaysoffset(1, changelist[j], "").Data[0][0].date()]
+        datelist = [w.tdaysoffset(0-backday-1, tdate, "").Data[0][0].date(),w.tdaysoffset(1, changelist[j], "").Data[0][0].date()]
+        print(codelist)
+
         for i in alphatype:
-            data.append(getdatacsv(codelist,datelist,i))
+            data[i] = getdatacsv(codelist,datelist,i,subuniversepath)
+        tstatus = gettradestatus(data['volume'],data['maxupordown'])
+        data.pop('maxupordown')
+        
         alphaout = alphatest(data,backday)
         
         #pnl.extend(computeret(data[0],alphaout,backday,pnl))
-        ret.extend(computeret(data[0],alphaout,backday,pnl))
+        pnl.extend(computeret(data['close'],alphaout,backday,pnl[-1],tstatus,tradingcost))
         tdate = changelist[j]
         j = j+1
     
-    performance(ret)
+    performance(pnl)
     
     return 0
 
@@ -165,19 +175,19 @@ def backtestalpha(startdate,enddate,changedate,subuniversepath,backday,alphatype
 
 
 # config
-startdate = dt.date(2019,1,1)  # minimum startdate=20100101
+startdate = dt.date(2019,6,28)  # minimum startdate=20100101
 enddate = dt.date(2019,9,1)
 changedate = 'change.csv'
-backdate = 20  # number of previous days necessary for calculating today's position; e.g., if you need Tue,Wed,Thu data to calculate Fri position, set backdate=3; minimum backdate is 1
+backdate = 1  # number of previous days necessary for calculating today's position; e.g., if you need Tue,Wed,Thu data to calculate Fri position, set backdate=3; minimum backdate is 1
 booksize = 1e7  # the total portfolio monetary size (RMB)
 mode = 0  # 0 for long only without hedging; 1 for long only with futures hedging; 2 for long-short
 universe = 0  # 0 for all A share; 1 for subuniverse: set subuniversepath
 subuniversepath = '000016.SH'  # ZZ800 for 'zhongzheng800', HS300 for 'hushen300'
 pnlpath = 'pnl.csv'  # output pnl file
 positionpath = 'position.csv'  # output daily position file
-tradingcost = 8e-4
+tradingcost = 1.5e-3
 futurestradingcost = 0.6e-4
-alphatype = ['close','volume']
-backtestalpha(startdate,enddate,changedate,subuniversepath,backdate,alphatype,booksize)
+alphatype = ['close','volume','maxupordown']
+backtestalpha(startdate,enddate,changedate,subuniversepath,backdate,alphatype,booksize,tradingcost)
 #performance()
 
