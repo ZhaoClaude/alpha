@@ -16,20 +16,25 @@ def listread(filename):
     return []
 
 def getdata(codelist,datelist,atype,sub):
-    
-    data = []
-    for i in codelist:
-        temp = w.wsd(i,atype,datelist[0],datelist[1],"PriceAdj=F").Data[0]
-        data.append(temp)
-    data =np.array(data).T
-    print('histdata\\'+atype+datelist[0].strftime('%Y%m%d')+'.csv')
-    np.savetxt('histdata\\'+sub[:6]+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv',data,delimiter=',')
-    return(data)
+    filename = 'histdata\\'+sub[:6]+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv'
+    if os.path.exists(filename):
+        print(filename)
+        data = np.loadtxt('histdata\\'+sub[:6]+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv',delimiter=',')
+        return(data)        
+    else:
+        data = []
+        for i in codelist:
+            temp = w.wsd(i,atype,datelist[0],datelist[1],"PriceAdj=F").Data[0]
+            data.append(temp)
+        data =np.array(data).T
+        print('histdata\\'+atype+datelist[0].strftime('%Y%m%d')+'.csv')
+        np.savetxt('histdata\\'+sub[:6]+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv',data,delimiter=',')
+        return(data)
         
-def getdatacsv(codelist,datelist,atype,sub):
-    print('histdata\\'+atype+datelist[0].strftime('%Y%m%d')+'.csv')
-    data = np.loadtxt('histdata\\'+sub[:6]+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv',delimiter=',')
-    return(data)
+#def getdatacsv(codelist,datelist,atype,sub):
+#    print('histdata\\'+atype+datelist[0].strftime('%Y%m%d')+'.csv')
+#    data = np.loadtxt('histdata\\'+sub[:6]+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv',delimiter=',')
+#    return(data)
 
 def gettradestatus(t1,t2):
     t3 = (t1>0) & (t2==0)
@@ -69,23 +74,33 @@ def alphatest12(data,backday):
     
         
 def alphatest11(data,backday):
-    close = data['close']
-    vwap = data['vwap']
-    volume = data['volume']
-    alphaout = np.zeros([data[0].shape[0]-backday-1,data[0].shape[1]])
-    for i in range(backday,len(close)-1):
-        temp = vwap[i-backday:i]-close[i-backday:i]
-        t2 = np.max(temp,axis = 0)
-        t3 = np.min(temp,axis = 0)
-        t4 = volume[i-1]-volume[i-backday]
-        alphaout[i-backday] = (wq.rankdata(t2)+wq.rankdata(t3))*wq.rankdata(t4)
+    close = data['close'][:-1]
+    vwap = data['vwap'][:-1]
+    volume = data['volume'][:-1]
+    t1 = wq.tsmax(vwap-close,backday)
+    t2 = wq.tsmin(vwap-close,backday)
+    t3 = wq.delta(volume,backday,backday)
+    
+    print(t1.shape,t2.shape,t3.shape)
+    alpha =  (wq.rankdata(wq.tsmax(vwap-close,backday))+wq.rankdata(wq.tsmin(vwap-close,backday)))*wq.rankdata(wq.delta(volume,backday,backday))
+    np.savetxt('test3.csv',alpha,delimiter=',')
+    return(alpha)   
+
+    
+#    alphaout = np.zeros([data[0].shape[0]-backday-1,data[0].shape[1]])
+#    for i in range(backday,len(close)-1):
+#        temp = vwap[i-backday:i]-close[i-backday:i]
+#        t2 = np.max(temp,axis = 0)
+#        t3 = np.min(temp,axis = 0)
+#        t4 = volume[i-1]-volume[i-backday]
+#        alphaout[i-backday] = (wq.rankdata(t2)+wq.rankdata(t3))*wq.rankdata(t4)
         
         
     
 
     #alphaout = np.ones([data[0].shape[0]-backday-1,data[0].shape[1]])
     
-    return alphaout
+#    return alphaout
     
 def computeret(close,pos,backday,pnl,tstatus,tradingcost):
     
@@ -153,7 +168,7 @@ def backtestalpha(startdate,enddate,changedate,subuniversepath,backday,alphatype
         print(codelist)
 
         for i in alphatype:
-            data[i] = getdatacsv(codelist,datelist,i,subuniversepath)
+            data[i] = getdata(codelist,datelist,i,subuniversepath)
         tstatus = gettradestatus(data['volume'],data['maxupordown'])
         data.pop('maxupordown')
         
@@ -187,7 +202,7 @@ pnlpath = 'pnl.csv'  # output pnl file
 positionpath = 'position.csv'  # output daily position file
 tradingcost = 1.5e-3
 futurestradingcost = 0.6e-4
-alphatype = ['close','volume','maxupordown']
+alphatype = ['close','volume','vwap','maxupordown']
 backtestalpha(startdate,enddate,changedate,subuniversepath,backdate,alphatype,booksize,tradingcost)
 #performance()
 
