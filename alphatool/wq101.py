@@ -6,10 +6,10 @@ Created on Wed Oct  9 14:10:40 2019
 """
 
 import numpy as np
-
+import scipy.stats as ss
 
 def rankdata(x):
-    t = (np.argsort(np.argsort(x))+1)/(x.shape[1])
+    t = (ss.rankdata(x)-1)/(x.shape[-1]-1)
     return(t)
 
 def delta(data,backday,nsize):
