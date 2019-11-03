@@ -13,8 +13,15 @@ from alphatool import wq101 as wq
 
 
 def listread(filename):
-    return []
+    changelist = [];
+    if os.path.exists(filename):
+        csv_reader = csv.reader(open(filename))
+        for row in csv_reader:
+            changelist.append(row[0]);
+            
+    return changelist
 
+print(x)
 def getdata(codelist,datelist,atype,sub):
     filename = 'histdata\\'+sub[:6]+atype+datelist[0].strftime('%Y%m%d')+'_'+datelist[1].strftime('%Y%m%d')+'.csv'
     if os.path.exists(filename):
@@ -158,13 +165,19 @@ def backtestalpha(startdate,enddate,changedate,subuniversepath,backday,alphatype
     changelist = listread(changedate)
     pnl =[booksize] 
 
-    changelist.append(enddate)
+    changelist.append(enddate.strftime('%Y/%m/%d'))
     while (tdate<= enddate) and(j<len(changelist)) :
+        nextenddate = datetime.strptime(changelist[j],'%Y/%m/%d').date()
+        if tdate> nextenddate:
+            j = j+1;
+            continue
+    
+    
         data = dict.fromkeys(alphatype)
         
         codelist = w.wset("sectorconstituent","date="+tdate.strftime('%Y%m%d')+";windcode="+subuniversepath+';field= wind_code').Data[0]
         #codelist = ['000016.sh']
-        datelist = [w.tdaysoffset(0-backday-1, tdate, "").Data[0][0].date(),w.tdaysoffset(1, changelist[j], "").Data[0][0].date()]
+        datelist = [w.tdaysoffset(0-backday-1, tdate, "").Data[0][0].date(),w.tdaysoffset(1, nextenddate, "").Data[0][0].date()]
         print(codelist)
 
         for i in alphatype:
@@ -176,7 +189,7 @@ def backtestalpha(startdate,enddate,changedate,subuniversepath,backday,alphatype
         
         #pnl.extend(computeret(data[0],alphaout,backday,pnl))
         pnl.extend(computeret(data['close'],alphaout,backday,pnl[-1],tstatus,tradingcost))
-        tdate = changelist[j]
+        tdate = nextenddate
         j = j+1
     
     performance(pnl)
@@ -190,7 +203,7 @@ def backtestalpha(startdate,enddate,changedate,subuniversepath,backday,alphatype
 
 
 # config
-startdate = dt.date(2019,6,28)  # minimum startdate=20100101
+startdate = dt.date(2019,1,28)  # minimum startdate=20100101
 enddate = dt.date(2019,9,1)
 changedate = 'change.csv'
 backdate = 1  # number of previous days necessary for calculating today's position; e.g., if you need Tue,Wed,Thu data to calculate Fri position, set backdate=3; minimum backdate is 1
